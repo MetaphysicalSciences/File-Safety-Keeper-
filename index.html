@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>⛓️ BEEFY ENCRYPTOR 50X - OFFLINE MONSTER ⛓️</title>
+<style>
+  body { background: #111; color: #0f0; font-family: monospace; padding: 2rem; text-align: center; }
+  input, button { margin: 0.5rem; padding: 0.5rem; width: 300px; }
+  #pw { font-weight: bold; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Encryptor</h1>
+
+<h2>Encrypt</h2>
+<input type="file" id="fileInput" />
+<br>
+<button id="gen">Generate 60-char Password</button>
+<br>
+<input id="passwordInput" type="text" placeholder="Or enter password" />
+<br>
+<div>Password (save this!): <div id="pw"></div></div>
+<button id="encryptBtn">Start Encrypt</button>
+<br>
+<a id="downloadEnc" style="display:none">Download Encrypted</a>
+
+<hr>
+
+<h2>Decrypt</h2>
+<input type="file" id="decryptInput" />
+<br>
+<input id="decryptPass" type="text" placeholder="Enter password to decrypt" />
+<br>
+<button id="decryptBtn">Decrypt It</button>
+<br>
+<a id="downloadDec" style="display:none">Download Decrypted</a>
+
+<script>
+function randBytes(len) {
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return arr;
+}
+
+function strToBytes(str) {
+  return new TextEncoder().encode(str);
+}
+
+function bytesToStr(buf) {
+  return new TextDecoder().decode(buf);
+}
+
+function u32(val) {
+  return new Uint8Array([
+    (val >> 24) & 0xFF,
+    (val >> 16) & 0xFF,
+    (val >> 8) & 0xFF,
+    val & 0xFF
+  ]);
+}
+
+function readU32(view, offset) {
+  return (view[offset]<<24) | (view[offset+1]<<16) | (view[offset+2]<<8) | view[offset+3];
+}
+
+async function derive(password, salt) {
+  const keyMaterial = await crypto.subtle.importKey("raw", strToBytes(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: salt, iterations: 500000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptLayer(data, password) {
+  const salt = randBytes(32);
+  const iv = randBytes(12);
+  const key = await derive(password, salt);
+  const ciphertext = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, data);
+
+  // Add fake header (decoy): 16 random bytes
+  const fakeHeader = randBytes(16);
+  const ct = new Uint8Array(ciphertext);
+  const totalLen = 16 + 32 + 12 + 4 + ct.length;
+  const out = new Uint8Array(totalLen);
+  let o = 0;
+  out.set(fakeHeader, o); o += 16;
+  out.set(salt, o); o += 32;
+  out.set(iv, o); o += 12;
+  out.set(u32(ct.length), o); o += 4;
+  out.set(ct, o);
+  return out.buffer;
+}
+
+async function decryptLayer(data, password) {
+  const view = new Uint8Array(data);
+  const salt = view.slice(16, 48);
+  const iv = view.slice(48, 60);
+  const len = readU32(view, 60);
+  const ciphertext = view.slice(64, 64 + len);
+  const key = await derive(password, salt);
+  const plaintext = await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ciphertext);
+  return plaintext;
+}
+
+async function encryptMulti(data, password, layers = 50) {
+  let result = data;
+  for (let i = 0; i < layers; i++) {
+    result = await encryptLayer(result, password);
+  }
+  return result;
+}
+
+async function decryptMulti(data, password, layers = 50) {
+  let result = data;
+  for (let i = 0; i < layers; i++) {
+    result = await decryptLayer(result, password);
+  }
+  return result;
+}
+
+function generatePassword(len = 60) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:<>,.?/';
+  let out = '';
+  while (out.length < len) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+document.getElementById("gen").onclick = () => {
+  const pass = generatePassword();
+  document.getElementById("passwordInput").value = pass;
+  document.getElementById("pw").textContent = pass;
+};
+
+document.getElementById("encryptBtn").onclick = async () => {
+  const file = document.getElementById("fileInput").files[0];
+  const password = document.getElementById("passwordInput").value;
+  if (!file || !password) return alert("File and password required.");
+  const buf = await file.arrayBuffer();
+  const encrypted = await encryptMulti(buf, password, 50);
+  const blob = new Blob([encrypted], {type: 'application/octet-stream'});
+  const url = URL.createObjectURL(blob);
+  const link = document.getElementById("downloadEnc");
+  link.href = url;
+  link.download = file.name + ".SuperEncrypted";
+  link.style.display = "inline";
+  link.textContent = "Download Encrypted File";
+};
+
+document.getElementById("decryptBtn").onclick = async () => {
+  const file = document.getElementById("decryptInput").files[0];
+  const password = document.getElementById("decryptPass").value;
+  if (!file || !password) return alert("File and password required.");
+  const buf = await file.arrayBuffer();
+  try {
+    const decrypted = await decryptMulti(buf, password, 50);
+    const blob = new Blob([decrypted]);
+    const url = URL.createObjectURL(blob);
+    const link = document.getElementById("downloadDec");
+    link.href = url;
+    link.download = file.name.replace(".SuperEncrypted", "") || "decrypted.file";
+    link.style.display = "inline";
+    link.textContent = "Download Decrypted File";
+  } catch (e) {
+    alert("Decryption failed. Password wrong or file corrupt.");
+  }
+};
+</script>
+</body>
+</html>
