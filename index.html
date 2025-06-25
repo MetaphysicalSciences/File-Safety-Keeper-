@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Giga Encryptor</title>
+<title>Ultra Beefy Custom Encryptor</title>
 <style>
   body {
     background: #121212;
@@ -14,7 +14,7 @@
     flex-direction: column;
     align-items: center;
     user-select: none;
-    max-width: 600px;
+    max-width: 480px;
     margin: auto;
   }
   input[type=file], input[type=password], input[type=number] {
@@ -63,60 +63,62 @@
     color: #4af;
     word-break: break-word;
   }
-  #dropZone {
-    border: 2px dashed #4af;
-    padding: 1rem;
+  #dropAreaEnc, #dropAreaDec {
     width: 100%;
+    border: 3px dashed #555;
+    padding: 1rem;
+    margin: 0.5rem 0;
     text-align: center;
-    color: #4af;
-    margin: 1rem 0;
+    color: #777;
     user-select: none;
   }
-  #dropZone.dragover {
-    background-color: #004080;
+  #dropAreaEnc.dragover, #dropAreaDec.dragover {
+    border-color: #08f;
+    color: #0af;
   }
-  #strengthBar {
-    height: 1rem;
+  #strengthMeter {
+    height: 8px;
     width: 100%;
     background: #333;
-    border-radius: 5px;
+    border-radius: 4px;
     overflow: hidden;
-    margin-bottom: 0.5rem;
+    margin-top: -0.7rem;
+    margin-bottom: 1rem;
   }
   #strengthFill {
     height: 100%;
+    background: #f00;
     width: 0%;
-    background: limegreen;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, background 0.3s ease;
   }
 </style>
 </head>
 <body>
 
-<h1>Its Beefy And Great At Its Job</h1>
-
-<h2>Config</h2>
-<label>Layers (1-3000)</label>
-<input type="number" id="layersInput" min="1" max="3000" value="100" />
-<label>Decoys (1-3000)</label>
-<input type="number" id="decoysInput" min="1" max="3000" value="20" />
+<h1>Giga Encryptor</h1>
 
 <h2>Encrypt</h2>
-<div id="dropZone">Drag & Drop Files Here or Click to Select</div>
-<input type="file" id="fileInput" multiple style="display:none" />
+
+<div id="dropAreaEnc">Drag & Drop files here or use file selector</div>
+<input type="file" id="fileInput" multiple />
+<input type="number" id="layerCount" min="1" max="3000" value="100" placeholder="Layers (1-3000)" />
+<input type="number" id="decoyCount" min="1" max="3000" value="20" placeholder="Decoys (1-3000)" />
 <input type="password" id="encryptPassword" placeholder="Enter or generate password" autocomplete="new-password" />
-<div id="strengthBar"><div id="strengthFill"></div></div>
+<div id="strengthMeter"><div id="strengthFill"></div></div>
 <button id="genPassBtn">Generate 50-Char Strong Password</button>
 <div id="passwordDisplay"></div>
-<button id="encryptBtn">Encrypt Files (Configurable Layers)</button>
+<button id="encryptBtn">Encrypt Files (Custom Layers)</button>
 <progress id="encryptProgress" max="100" value="0" style="display:none;"></progress>
 <div id="encryptOutput"></div>
 
 <hr />
 
 <h2>Decrypt</h2>
+
+<div id="dropAreaDec">Drag & Drop .SuperEncrypted files here or use file selector</div>
 <input type="file" id="decryptFileInput" multiple />
 <input type="password" id="decryptPassword" placeholder="Enter password to decrypt" autocomplete="off" />
+<input type="number" id="layerCountDec" min="1" max="3000" value="100" placeholder="Layers used in encryption" />
 <button id="decryptBtn">Decrypt Files</button>
 <progress id="decryptProgress" max="100" value="0" style="display:none;"></progress>
 <div id="decryptOutput"></div>
@@ -169,157 +171,130 @@ async function decryptLayer(buffer, password) {
   const iv = data.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
   const ciphertext = data.slice(SALT_LENGTH + IV_LENGTH);
   const key = await deriveKey(password, salt.buffer);
-  return await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ciphertext.buffer);
-}
-function concatBuffers(buffers) {
-  let totalLength = buffers.reduce((acc,b)=>acc+b.byteLength,0);
-  let tmp = new Uint8Array(totalLength);
-  let offset=0;
-  for(let b of buffers) {
-    tmp.set(new Uint8Array(b), offset);
-    offset+=b.byteLength;
-  }
-  return tmp.buffer;
-}
-function splitBuffers(buffer) {
-  const view = new Uint8Array(buffer);
-  let files = [];
-  let offset = 0;
-  while(offset < view.length) {
-    if(offset+4 > view.length) break;
-    let nameLen = view[offset] << 24 | view[offset+1] << 16 | view[offset+2] << 8 | view[offset+3];
-    offset +=4;
-    if(offset + nameLen > view.length) break;
-    let nameBuf = view.slice(offset, offset+nameLen);
-    let filename = decodeUTF8(nameBuf);
-    offset += nameLen;
-    if(offset + 8 > view.length) break;
-    let fileLen = Number(
-      (BigInt(view[offset]) << 56n) | (BigInt(view[offset+1]) << 48n) | (BigInt(view[offset+2]) << 40n) | (BigInt(view[offset+3]) << 32n) |
-      (BigInt(view[offset+4]) << 24n) | (BigInt(view[offset+5]) << 16n) | (BigInt(view[offset+6]) << 8n) | BigInt(view[offset+7])
-    );
-    offset += 8;
-    if(offset + fileLen > view.length) break;
-    let fileData = view.slice(offset, offset+fileLen);
-    offset += fileLen;
-    files.push({filename, fileData});
-  }
-  return files;
-}
-function packFiles(files) {
-  let buffers = [];
-  for(let f of files) {
-    let nameBuf = encodeUTF8(f.name);
-    let nameLenBuf = new Uint8Array(4);
-    nameLenBuf[0] = (nameBuf.length >> 24) & 0xFF;
-    nameLenBuf[1] = (nameBuf.length >> 16) & 0xFF;
-    nameLenBuf[2] = (nameBuf.length >> 8) & 0xFF;
-    nameLenBuf[3] = (nameBuf.length) & 0xFF;
-    let fileLenBuf = new Uint8Array(8);
-    let lenBig = BigInt(f.data.byteLength);
-    for(let i=7;i>=0;i--) {
-      fileLenBuf[i] = Number(lenBig & 0xFFn);
-      lenBig >>= 8n;
-    }
-    buffers.push(nameLenBuf.buffer, nameBuf.buffer, fileLenBuf.buffer, f.data);
-  }
-  return concatBuffers(buffers);
+  const decrypted = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ciphertext.buffer);
+  return decrypted;
 }
 async function generateDecoys(count, minSize, maxSize) {
-  let decoys = [];
-  for(let i=0;i<count;i++) {
-    let size = minSize + Math.floor(Math.random()*(maxSize-minSize));
-    decoys.push(await getRandomBytes(size));
+  const decoys = [];
+  for(let i=0; i<count; i++) {
+    const size = minSize + Math.floor(Math.random()*(maxSize-minSize));
+    const arr = await getRandomBytes(size);
+    decoys.push(arr);
   }
   return decoys;
 }
-async function addFakeHeadersAndDecoys(buffer, decoys) {
+async function addFakeHeadersAndDecoys(buffer, decoyCount) {
   const pngHeader = new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
-  const pdfHeader = encodeUTF8('%PDF-1.7\n%����\n');
+  const pdfHeader = new TextEncoder().encode('%PDF-1.7\n%    \n');
   const zipHeader = new Uint8Array([0x50,0x4B,0x03,0x04]);
   const fakeHeaders = [pngHeader, pdfHeader, zipHeader];
+  const decoys = await generateDecoys(decoyCount, 128, 512);
   let totalSize = buffer.byteLength;
   fakeHeaders.forEach(h => totalSize += h.byteLength);
   decoys.forEach(d => totalSize += d.byteLength);
   const combined = new Uint8Array(totalSize);
-  let offset=0;
-  for(const h of fakeHeaders) {
-    combined.set(h, offset);
-    offset+=h.byteLength;
+  let offset = 0;
+  for(const header of fakeHeaders) {
+    combined.set(header, offset);
+    offset += header.byteLength;
   }
   combined.set(new Uint8Array(buffer), offset);
   offset += buffer.byteLength;
-  for(const d of decoys) {
-    combined.set(d, offset);
-    offset+=d.byteLength;
+  for(const decoy of decoys) {
+    combined.set(decoy, offset);
+    offset += decoy.byteLength;
   }
   return combined.buffer;
 }
+function concatArrayBuffers(buffers) {
+  let totalLength = 0;
+  for (const b of buffers) totalLength += b.byteLength;
+  const temp = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const b of buffers) {
+    temp.set(new Uint8Array(b), offset);
+    offset += b.byteLength;
+  }
+  return temp.buffer;
+}
+function splitMultiFiles(buffer) {
+  let offset = 0;
+  const result = [];
+  while(offset < buffer.byteLength) {
+    if(offset + 4 > buffer.byteLength) break;
+    const nameLenView = new DataView(buffer, offset, 4);
+    const nameLen = nameLenView.getUint32(0, true);
+    offset += 4;
+    if(offset + nameLen > buffer.byteLength) break;
+    const nameBytes = new Uint8Array(buffer, offset, nameLen);
+    offset += nameLen;
+    if(offset + 4 > buffer.byteLength) break;
+    const dataLenView = new DataView(buffer, offset, 4);
+    const dataLen = dataLenView.getUint32(0, true);
+    offset += 4;
+    if(offset + dataLen > buffer.byteLength) break;
+    const data = buffer.slice(offset, offset + dataLen);
+    offset += dataLen;
+    const name = decodeUTF8(nameBytes);
+    result.push({name, data});
+  }
+  return result;
+}
+function createMultiFileBuffer(files) {
+  const chunks = [];
+  for(const f of files) {
+    const nameEncoded = encodeUTF8(f.name);
+    const nameLenBuf = new ArrayBuffer(4);
+    new DataView(nameLenBuf).setUint32(0, nameEncoded.byteLength, true);
+    const dataLenBuf = new ArrayBuffer(4);
+    new DataView(dataLenBuf).setUint32(0, f.data.byteLength, true);
+    chunks.push(nameLenBuf, nameEncoded.buffer, dataLenBuf, f.data);
+  }
+  return concatArrayBuffers(chunks);
+}
 function stripFakeHeadersAndDecoys(buffer) {
-  const pngHeader = [0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A];
-  const pdfHeaderStr = '%PDF-1.7\n%����\n';
-  const zipHeader = [0x50,0x4B,0x03,0x04];
-  let view = new Uint8Array(buffer);
-  let start = 0;
-  // Strip PNG header
-  if(view.length > pngHeader.length) {
+  // Remove known headers if present at start
+  let data = new Uint8Array(buffer);
+  const headers = [
+    new Uint8Array([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]), // PNG
+    new TextEncoder().encode('%PDF-1.7\n%    \n'),
+    new Uint8Array([0x50,0x4B,0x03,0x04]) // ZIP
+  ];
+  for(const h of headers) {
     let found = true;
-    for(let i=0;i<pngHeader.length;i++) if(view[i]!==pngHeader[i]) found=false;
-    if(found) start = pngHeader.length;
+    if(data.length >= h.length) {
+      for(let i=0; i<h.length; i++) if(data[i] !== h[i]) found = false;
+      if(found) data = data.slice(h.length);
+    }
   }
-  // Or PDF header
-  else if(view.length > pdfHeaderStr.length) {
-    let str = decodeUTF8(view.slice(0,pdfHeaderStr.length));
-    if(str===pdfHeaderStr) start = pdfHeaderStr.length;
+  // Remove trailing decoys by heuristics: remove trailing random blocks smaller than 600 bytes
+  while(data.length > 512) {
+    let decoyCandidateLen = 512;
+    let segment = data.slice(data.length - decoyCandidateLen);
+    let entropy = 0;
+    let freq = {};
+    for(const b of segment) freq[b] = (freq[b]||0)+1;
+    for(const k in freq) {
+      let p = freq[k]/segment.length;
+      entropy -= p * Math.log2(p);
+    }
+    if(entropy > 7.5) data = data.slice(0, data.length - decoyCandidateLen);
+    else break;
   }
-  // Or ZIP header
-  else if(view.length > zipHeader.length) {
-    let found = true;
-    for(let i=0;i<zipHeader.length;i++) if(view[i]!==zipHeader[i]) found=false;
-    if(found) start = zipHeader.length;
-  }
-  let cutoff = view.length;
-  for(let i=view.length-1; i>start+100; i--) {
-    if(view[i]===0) cutoff = i;
-  }
-  if(cutoff > start) return view.slice(start, cutoff).buffer;
-  return view.slice(start).buffer;
-}
-function updateStrengthMeter(p) {
-  const s = document.getElementById('strengthFill');
-  let score=0;
-  if(p.length >= 12) score+=1;
-  if(/[a-z]/.test(p)) score+=1;
-  if(/[A-Z]/.test(p)) score+=1;
-  if(/\d/.test(p)) score+=1;
-  if(/[!@#$%^&*()\-_=+\[\]{}|;:,.<>?~]/.test(p)) score+=1;
-  if(p.length >= 20) score+=1;
-  s.style.width = (score/6*100) + '%';
-  if(score<3) s.style.background='red';
-  else if(score<5) s.style.background='orange';
-  else s.style.background='limegreen';
-}
-async function encryptMultiLayer(buffer, password, layers, decoys, onProgress) {
-  let data = await addFakeHeadersAndDecoys(buffer, decoys);
-  for(let i=0;i<layers;i++) {
-    data = await encryptLayer(data, password);
-    if(onProgress) onProgress(i+1);
-    await new Promise(r=>setTimeout(r,1));
-  }
-  return data;
-}
-async function decryptMultiLayer(buffer, password, layers, onProgress) {
-  let data = buffer;
-  for(let i=0;i<layers;i++) {
-    data = await decryptLayer(data, password);
-    if(onProgress) onProgress(i+1);
-    await new Promise(r=>setTimeout(r,1));
-  }
-  data = stripFakeHeadersAndDecoys(data);
-  return data;
+  return data.buffer;
 }
 
-const dropZone = document.getElementById('dropZone');
+function checkPasswordStrength(pw) {
+  let score = 0;
+  if(pw.length >= 12) score += 25;
+  if(/[a-z]/.test(pw)) score += 15;
+  if(/[A-Z]/.test(pw)) score += 20;
+  if(/[0-9]/.test(pw)) score += 20;
+  if(/[^a-zA-Z0-9]/.test(pw)) score += 20;
+  if(pw.length >= 24) score += 10;
+  return Math.min(score, 100);
+}
+
 const fileInput = document.getElementById('fileInput');
 const encryptPassword = document.getElementById('encryptPassword');
 const genPassBtn = document.getElementById('genPassBtn');
@@ -327,83 +302,72 @@ const encryptBtn = document.getElementById('encryptBtn');
 const encryptProgress = document.getElementById('encryptProgress');
 const encryptOutput = document.getElementById('encryptOutput');
 const passwordDisplay = document.getElementById('passwordDisplay');
-const layersInput = document.getElementById('layersInput');
-const decoysInput = document.getElementById('decoysInput');
+const layerCountInput = document.getElementById('layerCount');
+const decoyCountInput = document.getElementById('decoyCount');
+const dropAreaEnc = document.getElementById('dropAreaEnc');
 
 const decryptFileInput = document.getElementById('decryptFileInput');
 const decryptPassword = document.getElementById('decryptPassword');
 const decryptBtn = document.getElementById('decryptBtn');
 const decryptProgress = document.getElementById('decryptProgress');
 const decryptOutput = document.getElementById('decryptOutput');
+const layerCountDecInput = document.getElementById('layerCountDec');
+const dropAreaDec = document.getElementById('dropAreaDec');
 
-const strengthInput = encryptPassword;
-strengthInput.addEventListener('input', e => updateStrengthMeter(e.target.value));
+const strengthFill = document.getElementById('strengthFill');
 
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-});
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  const dtFiles = e.dataTransfer.files;
-  if(dtFiles.length > 0) {
-    fileInput.files = dtFiles;
-    encryptOutput.innerHTML = `Selected ${dtFiles.length} files for encryption.`;
-  }
+encryptPassword.addEventListener('input', () => {
+  const score = checkPasswordStrength(encryptPassword.value);
+  strengthFill.style.width = score + '%';
+  strengthFill.style.background = score < 40 ? '#f33' : score < 70 ? '#fa3' : '#3f3';
 });
 
 genPassBtn.onclick = () => {
   const p = generatePassword();
   encryptPassword.value = p;
   passwordDisplay.textContent = p;
-  updateStrengthMeter(p);
+  const score = checkPasswordStrength(p);
+  strengthFill.style.width = score + '%';
+  strengthFill.style.background = '#3f3';
 };
-
 encryptBtn.onclick = async () => {
-  if(fileInput.files.length === 0) {
-    alert('Select files to encrypt.');
+  if ((!fileInput.files.length && dropAreaEnc.files.length === 0) && dropAreaEnc._files?.length !== undefined && dropAreaEnc._files.length === 0) {
+    alert('Select or drop files');
     return;
   }
-  if(!encryptPassword.value) {
-    alert('Enter or generate password.');
+  if (!encryptPassword.value) {
+    alert('Enter or generate password');
     return;
   }
-  let layers = Number(layersInput.value);
-  if(isNaN(layers) || layers < 1 || layers > 3000) {
-    alert('Layers must be between 1 and 3000.');
-    return;
-  }
-  let decoysCount = Number(decoysInput.value);
-  if(isNaN(decoysCount) || decoysCount < 1 || decoysCount > 3000) {
-    alert('Decoys must be between 1 and 3000.');
-    return;
-  }
+  let layers = Number(layerCountInput.value);
+  let decoys = Number(decoyCountInput.value);
+  if (!layers || layers < 1) layers = 100;
+  else if (layers > 3000) layers = 3000;
+  if (!decoys || decoys < 1) decoys = 20;
+  else if (decoys > 3000) decoys = 3000;
   encryptBtn.disabled = true; genPassBtn.disabled = true;
   encryptProgress.style.display = 'block';
   encryptProgress.value = 0;
   encryptOutput.innerHTML = '';
-
   try {
-    let files = [];
-    for(let f of fileInput.files) {
-      encryptOutput.appendChild(document.createTextNode(`Reading ${f.name}...`));
+    let files = fileInput.files.length ? fileInput.files : dropAreaEnc._files;
+    let toEncrypt = [];
+    for(const f of files) {
+      encryptOutput.appendChild(document.createTextNode(`Loading: ${f.name}`));
       encryptOutput.appendChild(document.createElement('br'));
-      let buffer = await f.arrayBuffer();
-      files.push({name:f.name, data:buffer});
+      const buff = await f.arrayBuffer();
+      toEncrypt.push({name: f.name, data: buff});
     }
-    let packed = packFiles(files);
-    let decoys = await generateDecoys(decoysCount, 128, 512);
-    let encrypted = await encryptMultiLayer(packed, encryptPassword.value, layers, decoys, v => {
-      encryptProgress.value = (v/layers)*100;
-    });
-    saveFile(encrypted, 'MultiFiles.SuperEncrypted');
-    encryptOutput.appendChild(document.createTextNode(`Encryption complete. Saved as MultiFiles.SuperEncrypted`));
+    let combinedBuffer = createMultiFileBuffer(toEncrypt);
+    combinedBuffer = await addFakeHeadersAndDecoys(combinedBuffer, decoys);
+    let data = combinedBuffer;
+    for(let i=0; i<layers; i++) {
+      data = await encryptLayer(data, encryptPassword.value);
+      encryptProgress.value = (i+1)/layers*100;
+      await new Promise(r=>setTimeout(r,1));
+    }
+    saveFile(data, 'Files.SuperEncrypted');
+    encryptOutput.appendChild(document.createTextNode(`Encrypted file saved: Files.SuperEncrypted`));
   } catch(e) {
     alert('Encryption failed: ' + e.message);
   }
@@ -412,40 +376,41 @@ encryptBtn.onclick = async () => {
 };
 
 decryptBtn.onclick = async () => {
-  if(decryptFileInput.files.length === 0) {
-    alert('Select encrypted files to decrypt.');
+  if ((!decryptFileInput.files.length && dropAreaDec._files?.length === 0)) {
+    alert('Select or drop files');
     return;
   }
-  if(!decryptPassword.value) {
-    alert('Enter password.');
+  if (!decryptPassword.value) {
+    alert('Enter password');
     return;
   }
-  let layers = Number(layersInput.value);
-  if(isNaN(layers) || layers < 1 || layers > 3000) {
-    alert('Layers must be between 1 and 3000.');
-    return;
-  }
+  let layers = Number(layerCountDecInput.value);
+  if (!layers || layers < 1) layers = 100;
+  else if (layers > 3000) layers = 3000;
   decryptBtn.disabled = true;
   decryptProgress.style.display = 'block';
   decryptProgress.value = 0;
   decryptOutput.innerHTML = '';
-
   try {
-    for(let f of decryptFileInput.files) {
-      decryptOutput.appendChild(document.createTextNode(`Decrypting ${f.name}...`));
+    let files = decryptFileInput.files.length ? decryptFileInput.files : dropAreaDec._files;
+    for(const f of files) {
+      decryptOutput.appendChild(document.createTextNode(`Decrypting: ${f.name}`));
       decryptOutput.appendChild(document.createElement('br'));
       let buffer = await f.arrayBuffer();
-      let decrypted = await decryptMultiLayer(buffer, decryptPassword.value, layers, v => {
-        decryptProgress.value = (v/layers)*100;
-      });
-      let files = splitBuffers(decrypted);
-      if(files.length === 0) {
-        saveFile(decrypted, f.name.replace(/\.SuperEncrypted$/, '') || 'decrypted.file');
-        decryptOutput.appendChild(document.createTextNode(`Decrypted saved as raw file.`));
+      for(let i=0; i<layers; i++) {
+        buffer = await decryptLayer(buffer, decryptPassword.value);
+        decryptProgress.value = (i+1)/layers*100;
+        await new Promise(r=>setTimeout(r,1));
+      }
+      buffer = stripFakeHeadersAndDecoys(buffer);
+      const parts = splitMultiFiles(buffer);
+      if(parts.length === 0) {
+        saveFile(buffer, f.name.replace(/\.SuperEncrypted$/, '') || 'decrypted.file');
+        decryptOutput.appendChild(document.createTextNode(`Decrypted saved: ${f.name.replace(/\.SuperEncrypted$/, '') || 'decrypted.file'}`));
       } else {
-        for(let file of files) {
-          saveFile(file.fileData.buffer, file.filename);
-          decryptOutput.appendChild(document.createTextNode(`Decrypted saved: ${file.filename}`));
+        for(const p of parts) {
+          saveFile(p.data, p.name);
+          decryptOutput.appendChild(document.createTextNode(`Decrypted saved: ${p.name}`));
           decryptOutput.appendChild(document.createElement('br'));
         }
       }
@@ -456,6 +421,59 @@ decryptBtn.onclick = async () => {
   decryptBtn.disabled = false;
   decryptProgress.style.display = 'none';
 };
+
+function saveFile(buffer, name) {
+  const blob = new Blob([buffer]);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function highlight(e) {
+  e.currentTarget.classList.add('dragover');
+}
+
+function unhighlight(e) {
+  e.currentTarget.classList.remove('dragover');
+}
+
+dropAreaEnc.addEventListener('dragenter', preventDefaults, false);
+dropAreaEnc.addEventListener('dragover', preventDefaults, false);
+dropAreaEnc.addEventListener('dragleave', preventDefaults, false);
+dropAreaEnc.addEventListener('drop', preventDefaults, false);
+dropAreaEnc.addEventListener('dragenter', highlight, false);
+dropAreaEnc.addEventListener('dragover', highlight, false);
+dropAreaEnc.addEventListener('dragleave', unhighlight, false);
+dropAreaEnc.addEventListener('drop', unhighlight, false);
+dropAreaEnc.addEventListener('drop', e => {
+  dropAreaEnc._files = e.dataTransfer.files;
+  dropAreaEnc.textContent = `${dropAreaEnc._files.length} file(s) ready for encryption`;
+  fileInput.value = ''; // clear input to avoid confusion
+});
+
+dropAreaDec.addEventListener('dragenter', preventDefaults, false);
+dropAreaDec.addEventListener('dragover', preventDefaults, false);
+dropAreaDec.addEventListener('dragleave', preventDefaults, false);
+dropAreaDec.addEventListener('drop', preventDefaults, false);
+dropAreaDec.addEventListener('dragenter', highlight, false);
+dropAreaDec.addEventListener('dragover', highlight, false);
+dropAreaDec.addEventListener('dragleave', unhighlight, false);
+dropAreaDec.addEventListener('drop', unhighlight, false);
+dropAreaDec.addEventListener('drop', e => {
+  dropAreaDec._files = e.dataTransfer.files;
+  dropAreaDec.textContent = `${dropAreaDec._files.length} file(s) ready for decryption`;
+  decryptFileInput.value = '';
+});
 </script>
 
 </body>
