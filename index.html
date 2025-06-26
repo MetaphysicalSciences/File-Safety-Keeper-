@@ -3,154 +3,203 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Ultra Beefy Configurable 100-Layer Encryptor + Decoys + Q&A</title>
+<title>Ultra Secure File Encryptor</title>
 <style>
   body {
-    background: #121212;
-    color: #eee;
-    font-family: monospace, monospace;
-    padding: 1rem 2rem;
-    max-width: 600px;
+    background: #f5f7fa;
+    color: #222;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 2rem;
+    max-width: 700px;
     margin: auto;
     user-select: none;
+    box-sizing: border-box;
   }
   h1, h2, h3 {
     margin-top: 0.6rem;
+    font-weight: 700;
+    color: #0d3b66;
+    user-select: text;
   }
   input[type=file], input[type=password], input[type=number], input[type=text], textarea {
     width: 100%;
-    padding: 0.6rem;
-    margin: 0.3rem 0 1rem 0;
+    padding: 0.7rem;
+    margin: 0.4rem 0 1rem 0;
     font-size: 1rem;
-    background: #222;
-    color: #eee;
-    border: none;
-    border-radius: 4px;
+    background: #ffffff;
+    color: #222;
+    border: 1.5px solid #9bb3c4;
+    border-radius: 6px;
     box-sizing: border-box;
+    transition: border-color 0.3s ease;
+  }
+  input[type=file]:focus, input[type=password]:focus, input[type=number]:focus, input[type=text]:focus, textarea:focus {
+    border-color: #0d3b66;
+    outline: none;
   }
   textarea {
     resize: vertical;
-    min-height: 2.5rem;
+    min-height: 3rem;
   }
   button {
     width: 100%;
-    padding: 0.8rem;
-    margin: 0.5rem 0 1rem 0;
-    font-size: 1.1rem;
-    background: #0088ff;
+    padding: 1rem;
+    margin: 0.8rem 0 1.2rem 0;
+    font-size: 1.15rem;
+    background: #0d3b66;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     color: white;
     cursor: pointer;
     user-select: none;
+    box-shadow: 0 4px 8px rgba(13, 59, 102, 0.4);
+    transition: background-color 0.3s ease;
+  }
+  button:hover:not(:disabled) {
+    background: #13487f;
   }
   button:disabled {
-    background: #555;
+    background: #9bb3c4;
     cursor: default;
+    box-shadow: none;
   }
   #passwordDisplay, #passwordStrengthText, #infoText {
-    background: #222;
-    padding: 0.6rem;
-    margin: 0.3rem 0 1rem 0;
-    font-weight: bold;
-    word-break: break-all;
+    background: #e8f0fe;
+    padding: 0.8rem;
+    margin: 0.4rem 0 1rem 0;
+    font-weight: 600;
+    word-break: break-word;
     user-select: text;
+    border-radius: 6px;
+    color: #0d3b66;
+    box-shadow: inset 1px 1px 6px rgba(13, 59, 102, 0.15);
   }
   progress {
     width: 100%;
-    height: 1.3rem;
-    margin: 0.5rem 0 1rem 0;
-    border-radius: 5px;
-    background: #222;
+    height: 1.4rem;
+    margin: 0.7rem 0 1.2rem 0;
+    border-radius: 10px;
+    background: #d6dce6;
+    box-shadow: inset 1px 1px 4px #ffffff;
+  }
+  progress::-webkit-progress-bar {
+    background-color: #d6dce6;
+    border-radius: 10px;
+  }
+  progress::-webkit-progress-value {
+    background-color: #0d3b66;
+    border-radius: 10px;
+  }
+  progress::-moz-progress-bar {
+    background-color: #0d3b66;
+    border-radius: 10px;
   }
   a {
     margin-top: 0.6rem;
-    color: #4af;
+    color: #0d3b66;
     word-break: break-word;
+    text-decoration: underline;
+    user-select: text;
   }
   #questionAnswerContainer {
-    margin-bottom: 1rem;
+    margin-bottom: 1.2rem;
   }
   #questionInput, #answerInput {
     font-size: 1rem;
   }
   #layerDecoySettings {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 1.4rem;
+    margin-bottom: 1.2rem;
   }
   #layerDecoySettings > div {
     flex: 1;
   }
   #layerDecoySettings label {
     display: block;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: #2a4d69;
+    user-select: text;
   }
   #decryptQASection {
-    margin-top: 1rem;
-    background: #222;
-    padding: 0.8rem;
-    border-radius: 5px;
+    margin-top: 1.2rem;
+    background: #e8f0fe;
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    box-shadow: inset 0 0 12px rgba(13, 59, 102, 0.1);
+    color: #0d3b66;
+    user-select: text;
+  }
+  #encryptOutput, #decryptOutput {
+    background: #e8f0fe;
+    padding: 0.8rem 1rem;
+    border-radius: 6px;
+    color: #0d3b66;
+    max-height: 140px;
+    overflow-y: auto;
+    box-shadow: inset 0 0 10px rgba(13, 59, 102, 0.15);
+    font-size: 0.9rem;
+    user-select: text;
   }
 </style>
 </head>
 <body>
 
-<h1>Ultra Beefy Configurable Encryptor</h1>
+<h1>Ultra Secure File Encryptor</h1>
 
 <div id="infoText">
-  <b>How to use:</b><br>
-  1. Select one or more files to encrypt.<br>
-  2. Enter or generate a strong password.<br>
-  3. Set number of encryption layers (1-3000) and decoys (1-3000).<br>
-  4. Enter a security question and answer for decrypt verification.<br>
-  5. Click "Encrypt" to create ONE combined SuperEncrypted file.<br>
-  6. To decrypt, select the combined file, enter password, answer the security question, then decrypt.<br>
-  Password strength meter will guide your password quality.<br>
-  Decoys include fake passwords to confuse attackers.<br>
-  <br>
-  <b>Note:</b> Losing password or answer means no recovery.<br>
+  <strong>How to use:</strong><br />
+  1. Select one or more files to encrypt.<br />
+  2. Enter or generate a strong password.<br />
+  3. Configure number of encryption layers (1–3000) and decoys (1–3000).<br />
+  4. Enter a security question and answer for decrypt verification.<br />
+  5. Click "Encrypt" to create ONE combined SuperEncrypted file.<br />
+  6. To decrypt, select the combined file, enter password, answer the security question, then decrypt.<br />
+  Password strength meter will help ensure quality.<br />
+  Decoys include fake passwords to confuse attackers.<br /><br />
+  <strong>Important:</strong> Losing password or answer means no recovery.<br />
 </div>
 
 <h2>Encrypt</h2>
-<input type="file" id="fileInput" multiple />
-<input type="password" id="encryptPassword" placeholder="Enter or generate password" autocomplete="new-password" />
-<div id="passwordDisplay"></div>
-<div id="passwordStrengthText"></div>
-<button id="genPassBtn">Generate 50-Char Strong Password</button>
+<input type="file" id="fileInput" multiple aria-label="Select files to encrypt" />
+<input type="password" id="encryptPassword" placeholder="Enter or generate password" autocomplete="new-password" aria-label="Password for encryption" />
+<div id="passwordDisplay" aria-live="polite"></div>
+<div id="passwordStrengthText" aria-live="polite"></div>
+<button id="genPassBtn" aria-label="Generate strong password">Generate 50-Char Strong Password</button>
 
-<div id="layerDecoySettings">
+<div id="layerDecoySettings" aria-label="Encryption layers and decoys settings">
   <div>
-    <label for="layersInput">Encryption Layers (1-3000)</label>
-    <input type="number" id="layersInput" min="1" max="3000" value="100" />
+    <label for="layersInput">Encryption Layers (1–3000)</label>
+    <input type="number" id="layersInput" min="1" max="3000" value="100" aria-describedby="layersHelp" />
   </div>
   <div>
-    <label for="decoysInput">Number of Decoys (1-3000)</label>
-    <input type="number" id="decoysInput" min="1" max="3000" value="20" />
+    <label for="decoysInput">Number of Decoys (1–3000)</label>
+    <input type="number" id="decoysInput" min="1" max="3000" value="20" aria-describedby="decoysHelp" />
   </div>
 </div>
 
-<div id="questionAnswerContainer">
-  <input type="text" id="questionInput" placeholder="Enter Security Question" />
-  <input type="text" id="answerInput" placeholder="Enter Security Answer" />
+<div id="questionAnswerContainer" aria-label="Security question and answer">
+  <input type="text" id="questionInput" placeholder="Enter Security Question" aria-label="Security question" />
+  <input type="text" id="answerInput" placeholder="Enter Security Answer" aria-label="Security answer" />
 </div>
 
-<button id="encryptBtn">Encrypt Files (Configurable Layers & Decoys)</button>
-<progress id="encryptProgress" max="100" value="0" style="display:none;"></progress>
-<div id="encryptOutput"></div>
+<button id="encryptBtn" aria-label="Encrypt selected files">Encrypt Files (Configurable Layers & Decoys)</button>
+<progress id="encryptProgress" max="100" value="0" style="display:none;" aria-label="Encryption progress"></progress>
+<div id="encryptOutput" role="region" aria-live="polite"></div>
 
 <hr />
 
 <h2>Decrypt</h2>
-<input type="file" id="decryptFileInput" />
-<input type="password" id="decryptPassword" placeholder="Enter password" autocomplete="off" />
-<div id="decryptQASection" style="display:none;">
-  <div><b>Security Question:</b> <span id="displayQuestion"></span></div>
-  <input type="text" id="decryptAnswerInput" placeholder="Enter security answer" autocomplete="off" />
+<input type="file" id="decryptFileInput" aria-label="Select encrypted file" />
+<input type="password" id="decryptPassword" placeholder="Enter password" autocomplete="off" aria-label="Password for decryption" />
+<div id="decryptQASection" style="display:none;" aria-live="polite">
+  <div><strong>Security Question:</strong> <span id="displayQuestion"></span></div>
+  <input type="text" id="decryptAnswerInput" placeholder="Enter security answer" autocomplete="off" aria-label="Security answer for decryption" />
 </div>
-<button id="decryptBtn" disabled>Load Encrypted File First</button>
-<progress id="decryptProgress" max="100" value="0" style="display:none;"></progress>
-<div id="decryptOutput"></div>
+<button id="decryptBtn" disabled aria-label="Decrypt selected file">Load Encrypted File First</button>
+<progress id="decryptProgress" max="100" value="0" style="display:none;" aria-label="Decryption progress"></progress>
+<div id="decryptOutput" role="region" aria-live="polite"></div>
 
 <script>
 const SALT_LENGTH = 32;
@@ -287,8 +336,6 @@ async function addFakeHeadersAndDecoys(buffer, decoyBuffers) {
 }
 function stripFakeHeadersAndDecoys(buffer) {
   const data = new Uint8Array(buffer);
-  // Remove fake headers if present
-  // Known headers length total approx 8 + 9 + 4 = 21 bytes
   let offset = 0;
   if(data.length > 21) {
     const pngHeader = [0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A];
@@ -308,12 +355,10 @@ function stripFakeHeadersAndDecoys(buffer) {
     }
     if(matchZip) offset += zipHeader.length;
   }
-  // Return buffer without headers
   if(offset > 0) return data.slice(offset).buffer;
   else return buffer;
 }
 async function encryptMultiLayer(files, password, layers, decoysCount, answer, onProgress) {
-  // Combine files into one ArrayBuffer with lengths and names
   let combinedBuffers = [];
   for(let file of files) {
     let nameBytes = encodeUTF8(file.name);
@@ -325,7 +370,6 @@ async function encryptMultiLayer(files, password, layers, decoysCount, answer, o
     combinedBuffers.push(nameLenBuffer.buffer, nameBytes.buffer, fileLenBuffer.buffer, fileBuffer);
   }
   let combined = concatArrayBuffers(combinedBuffers);
-  // Generate decoy buffers with fake passwords including decoy answer
   let decoyBuffers = await generateDecoys(decoysCount, answer);
   combined = await addFakeHeadersAndDecoys(combined, decoyBuffers);
   let data = combined;
@@ -334,11 +378,9 @@ async function encryptMultiLayer(files, password, layers, decoysCount, answer, o
     if(onProgress) onProgress(i+1, layers);
     await new Promise(r=>setTimeout(r,1));
   }
-  // Attach question + salt/iv for Q&A after encryption for decrypt
   let questionBytes = encodeUTF8(document.getElementById('questionInput').value.trim());
   let questionLenBuffer = new Uint8Array(4);
   new DataView(questionLenBuffer.buffer).setUint32(0, questionBytes.length, true);
-  // Format: [4 bytes question len][question UTF8][encrypted data]
   data = concatArrayBuffers([questionLenBuffer.buffer, questionBytes.buffer, data]);
   return data;
 }
@@ -485,7 +527,7 @@ decryptFileInput.onchange = async () => {
   }
 };
 decryptPassword.oninput = () => {
-  decryptBtn.disabled = !(decryptPassword.value && loadedEncryptedBuffer);
+  decryptBtn.disabled = !(decryptPassword.value && loadedEncryptedBuffer && decryptAnswerInput.value.trim());
 };
 decryptAnswerInput.oninput = () => {
   decryptBtn.disabled = !(decryptPassword.value && decryptAnswerInput.value.trim() && loadedEncryptedBuffer);
@@ -508,7 +550,6 @@ decryptBtn.onclick = async () => {
   decryptProgress.value = 0;
   decryptOutput.innerHTML = '';
   try {
-    // We don't know layers from UI, so we'll read layers input as decryptLayers, fallback to 100
     let layers = parseInt(layersInput.value);
     if(isNaN(layers) || layers < 1 || layers > 3000) layers = 100;
     decryptLayers = layers;
@@ -522,7 +563,6 @@ decryptBtn.onclick = async () => {
       return;
     }
     let data = decryptedObj.data;
-    // The combined file has multiple files embedded with length prefixes:
     let offset = 0;
     const results = [];
     while(offset < data.byteLength) {
